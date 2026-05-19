@@ -117,6 +117,21 @@ const copper = materials[0];
 const aluminium = materials[1];
 
 export const profiles: BusbarProfile[] = [
+  // Copper DIN 43671 — thin (5 mm)
+  buildProfile(copper, 20, 5, 'DIN_43671', 275),
+  buildProfile(copper, 25, 5, 'DIN_43671', 330),
+  buildProfile(copper, 30, 5, 'DIN_43671', 390),
+  buildProfile(copper, 40, 5, 'DIN_43671', 500),
+  buildProfile(copper, 50, 5, 'DIN_43671', 605),
+  buildProfile(copper, 60, 5, 'DIN_43671', 705),
+  // Copper DIN 43671 — medium (6.3 / 8 mm)
+  buildProfile(copper, 30, 6.3, 'DIN_43671', 470),
+  buildProfile(copper, 40, 6.3, 'DIN_43671', 595),
+  buildProfile(copper, 50, 6.3, 'DIN_43671', 720),
+  buildProfile(copper, 60, 6.3, 'DIN_43671', 840),
+  buildProfile(copper, 80, 6.3, 'DIN_43671', 1070),
+  buildProfile(copper, 100, 6.3, 'DIN_43671', 1290),
+  // Copper DIN 43671 — 10 mm
   buildProfile(copper, 30, 10, 'DIN_43671', 710),
   buildProfile(copper, 40, 10, 'DIN_43671', 850),
   buildProfile(copper, 50, 10, 'DIN_43671', 1040),
@@ -124,17 +139,41 @@ export const profiles: BusbarProfile[] = [
   buildProfile(copper, 80, 10, 'DIN_43671', 1550),
   buildProfile(copper, 100, 10, 'DIN_43671', 1850),
   buildProfile(copper, 120, 10, 'DIN_43671', 2150),
+  buildProfile(copper, 160, 10, 'DIN_43671', 2700),
+  buildProfile(copper, 200, 10, 'DIN_43671', 3200),
+  // Copper DIN 43671 — 12 mm
+  buildProfile(copper, 60, 12, 'DIN_43671', 1390),
   buildProfile(copper, 80, 12, 'DIN_43671', 1700),
   buildProfile(copper, 100, 12, 'DIN_43671', 2050),
   buildProfile(copper, 120, 12, 'DIN_43671', 2350),
+  buildProfile(copper, 160, 12, 'DIN_43671', 2950),
+  buildProfile(copper, 200, 12, 'DIN_43671', 3500),
+
+  // Aluminium DIN 43670 — thin (5 / 6.3 mm)
+  buildProfile(aluminium, 30, 5, 'DIN_43670', 280),
+  buildProfile(aluminium, 40, 5, 'DIN_43670', 365),
+  buildProfile(aluminium, 50, 5, 'DIN_43670', 445),
+  buildProfile(aluminium, 60, 5, 'DIN_43670', 520),
+  buildProfile(aluminium, 40, 6.3, 'DIN_43670', 440),
+  buildProfile(aluminium, 50, 6.3, 'DIN_43670', 540),
+  buildProfile(aluminium, 60, 6.3, 'DIN_43670', 630),
+  buildProfile(aluminium, 80, 6.3, 'DIN_43670', 800),
+  buildProfile(aluminium, 100, 6.3, 'DIN_43670', 960),
+  // Aluminium DIN 43670 — 10 mm
   buildProfile(aluminium, 40, 10, 'DIN_43670', 610),
   buildProfile(aluminium, 50, 10, 'DIN_43670', 760),
   buildProfile(aluminium, 60, 10, 'DIN_43670', 900),
   buildProfile(aluminium, 80, 10, 'DIN_43670', 1160),
   buildProfile(aluminium, 100, 10, 'DIN_43670', 1390),
   buildProfile(aluminium, 120, 10, 'DIN_43670', 1600),
+  buildProfile(aluminium, 160, 10, 'DIN_43670', 2010),
+  buildProfile(aluminium, 200, 10, 'DIN_43670', 2380),
+  // Aluminium DIN 43670 — 12 mm
+  buildProfile(aluminium, 80, 12, 'DIN_43670', 1280),
   buildProfile(aluminium, 100, 12, 'DIN_43670', 1540),
   buildProfile(aluminium, 120, 12, 'DIN_43670', 1800),
+  buildProfile(aluminium, 160, 12, 'DIN_43670', 2280),
+  buildProfile(aluminium, 200, 12, 'DIN_43670', 2700),
 ];
 
 export const coolingPresets: CoolingPreset[] = [

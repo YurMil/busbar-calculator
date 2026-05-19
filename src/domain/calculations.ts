@@ -463,7 +463,7 @@ function currentDensityWarning(currentDensity: number, material: BusbarMaterial)
       'CURRENT_DENSITY_HIGH',
       'error',
       'Current density is high',
-      `${currentDensity.toFixed(2)} A/mm2 exceeds the screening limit for the selected material.`,
+      `${currentDensity.toFixed(2)} A/mm² exceeds the screening limit for the selected material.`,
       'Choose a larger profile or more bars per phase.',
     );
   }
@@ -472,7 +472,7 @@ function currentDensityWarning(currentDensity: number, material: BusbarMaterial)
       'CURRENT_DENSITY_REVIEW',
       'warning',
       'Current density needs review',
-      `${currentDensity.toFixed(2)} A/mm2 is near the screening limit.`,
+      `${currentDensity.toFixed(2)} A/mm² is near the screening limit.`,
       'Check temperature rise and validated rating tables.',
     );
   }
@@ -592,7 +592,7 @@ function buildCandidates(input: BusbarInput): ProfileCandidate[] {
   return candidates
     .sort((a, b) => a.score - b.score)
     .map((candidate, index) => ({...candidate, rank: index + 1}))
-    .slice(0, 12);
+    .slice(0, 80);
 }
 
 function buildTrace(
@@ -609,7 +609,7 @@ function buildTrace(
       equation: 'S = w * t * n',
       inputs: {w_mm: input.width_mm, t_mm: input.thickness_mm, n: input.barsPerPhase},
       output: result.areaPerPhase_mm2.toFixed(1),
-      unit: 'mm2',
+      unit: 'mm²',
       method: 'rectangular-profile-geometry-v1',
       sourceRef: profile.metadata.sourceRef,
     },
@@ -619,7 +619,7 @@ function buildTrace(
       equation: 'J = I / S',
       inputs: {I_A: input.ratedCurrent_A, S_mm2: result.areaPerPhase_mm2},
       output: result.currentDensity_A_per_mm2.toFixed(3),
-      unit: 'A/mm2',
+      unit: 'A/mm²',
       method: 'current-density-v1',
     },
     {
@@ -650,7 +650,7 @@ function buildTrace(
       equation: 'P_loss = Q_convection + Q_radiation',
       inputs: {ambient_C: input.ambientTemp_C, cooling: result.cooling.label},
       output: result.steady.steadyStateTemp_C.toFixed(1),
-      unit: 'degC',
+      unit: '°C',
       method: 'lumped-steady-state-v1',
     },
     {
@@ -675,7 +675,7 @@ function buildTrace(
     {
       id: 'short-circuit-thermal',
       label: 'Short-circuit thermal utilization',
-      equation: 'I2t / (kS)^2',
+      equation: 'I²t / (kS)²',
       inputs: {Ik_kA: input.rmsShortCircuit_kA ?? 'not entered', t_s: input.shortCircuitDuration_s ?? 'not entered'},
       output: result.shortCircuit.thermalUtilization
         ? `${(result.shortCircuit.thermalUtilization * 100).toFixed(1)}`
@@ -735,7 +735,7 @@ export function calculateBusbar(input: BusbarInput): BusbarCalculationResult {
         'TEMPERATURE_LIMIT_EXCEEDED',
         'error',
         'Estimated temperature exceeds material limit',
-        `${fixed.steady.steadyStateTemp_C.toFixed(1)} degC is above the ${material.allowableContinuousTemp_C.toFixed(0)} degC limit.`,
+        `${fixed.steady.steadyStateTemp_C.toFixed(1)} °C is above the ${material.allowableContinuousTemp_C.toFixed(0)} °C limit.`,
         'Choose a larger profile, more bars per phase, or improved cooling.',
       ),
     );

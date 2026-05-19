@@ -24,7 +24,8 @@
   --bb-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-:root[data-theme='light'] {
+:root[data-theme='light'],
+[data-theme='light'] {
   color-scheme: light;
   --bb-bg: #eff4f8;
   --bb-bg-soft: #e3ebf2;
@@ -36,5 +37,11 @@
   --bb-text: #142131;
   --bb-muted: #536276;
   --bb-faint: #7b8796;
+  --bb-accent: #0891b2;
+  --bb-accent-strong: #0e7490;
+  --bb-warn: #b45309;
+  --bb-danger: #b91c1c;
+  --bb-pass: #15803d;
+  --bb-info: #0369a1;
   --bb-shadow: 0 16px 32px rgba(24, 43, 66, 0.12);
 }

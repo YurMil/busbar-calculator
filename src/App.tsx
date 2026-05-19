@@ -10,6 +10,8 @@ import {TemperatureForecastChart} from './components/TemperatureForecastChart';
 import {ShortCircuitDiagram} from './components/ShortCircuitDiagram';
 import {CandidateTable} from './components/CandidateTable';
 import {TracePanel} from './components/TracePanel';
+import {KpiStrip} from './components/KpiStrip';
+import {useToast} from './components/Toaster';
 import type {ProfileCandidate} from './domain/types';
 
 export function App() {
@@ -23,6 +25,18 @@ export function App() {
   const setTheme = useBusbarStore((state) => state.setTheme);
   const result = useMemo(() => calculateBusbar(input), [input]);
   const material = useMemo(() => getMaterial(input.materialId), [input.materialId]);
+  const {notify} = useToast();
+
+  const handleReset = () => {
+    if (window.confirm('Reset all inputs to defaults? Current project data will be lost.')) {
+      reset();
+      notify('info', 'Project reset to defaults');
+    }
+  };
+
+  const handleImport = (next: typeof input) => {
+    loadProject(next);
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -40,9 +54,11 @@ export function App() {
         result={result}
         theme={theme}
         onThemeChange={setTheme}
-        onImport={loadProject}
-        onReset={reset}
+        onImport={handleImport}
+        onReset={handleReset}
       />
+
+      <KpiStrip result={result} />
 
       <main className="dashboard-grid">
         <InputPanel input={input} onInput={setInput} onProject={setProject} />
@@ -70,8 +86,7 @@ export function App() {
 
       <footer className="app-footer">
         <span>Standards: DIN 43670/43671 interfaces, IEC 61439, IEC 60664, IEC 60865</span>
-        <span>Units: SI, mm, degC, A, kA, s</span>
-        <span>Datasets: example-only draft</span>
+        <span>Units: SI, mm, °C, A, kA, s</span>
       </footer>
     </div>
   );
