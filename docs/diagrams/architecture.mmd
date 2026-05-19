@@ -1,0 +1,12 @@
+flowchart LR
+  User[User] --> Route[/utilities/busbar-calculator/]
+  Route --> Shell[UtilityShellPage]
+  Shell --> Frame[iframe: /utility-apps/busbar-calculator/app.html]
+  Frame --> App[React + TypeScript App]
+  App --> Store[Zustand Store]
+  App --> Domain[Domain Calculation Engine]
+  Domain --> Data[Materials / Profiles / Standards Data]
+  Domain --> Result[Calculation Result]
+  Result --> UI[Result Panels + SVG + Charts]
+  Result --> PDF[jsPDF Report]
+  Result --> CAD[Geometry Payload]

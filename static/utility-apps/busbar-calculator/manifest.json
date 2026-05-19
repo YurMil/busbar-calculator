@@ -1,0 +1,21 @@
+{
+  "name": "busbar-calculator",
+  "version": "0.1.0",
+  "buildTime": "2026-05-19T09:55:27.512Z",
+  "entry": "app.html",
+  "assets": [
+    "assets/html2canvas-C8tcqpOc.js",
+    "assets/html2canvas-C8tcqpOc.js.map",
+    "assets/index-BG6xEtWi.css",
+    "assets/index-C-M1ucsx.js",
+    "assets/index-C-M1ucsx.js.map",
+    "assets/index.es-2UfYoXRP.js",
+    "assets/index.es-2UfYoXRP.js.map",
+    "assets/jspdf.es.min-CAOGk9ET.js",
+    "assets/jspdf.es.min-CAOGk9ET.js.map",
+    "assets/purify.es-D0HTaf_u.js",
+    "assets/purify.es-D0HTaf_u.js.map",
+    "assets/typeof-mVVFPGHC.js",
+    "assets/typeof-mVVFPGHC.js.map"
+  ]
+}

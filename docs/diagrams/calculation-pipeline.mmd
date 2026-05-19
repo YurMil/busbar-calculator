@@ -1,0 +1,20 @@
+flowchart TD
+  A[Input form] --> B[Normalize units]
+  B --> C[Validate input]
+  C --> D[Resolve material and profile]
+  D --> E[Calculate area, mass, resistance]
+  E --> F[Apply AC/DC factors]
+  F --> G[Calculate losses]
+  G --> H[Steady-state thermal solve]
+  H --> I[Transient temperature forecast]
+  C --> J[Clearance rule lookup]
+  J --> K[Channel envelope]
+  C --> L[Short-circuit thermal check]
+  C --> M[Short-circuit mechanical check]
+  I --> N[Aggregate result]
+  K --> N
+  L --> N
+  M --> N
+  N --> O[Warnings + status]
+  O --> P[UI]
+  O --> Q[PDF]
