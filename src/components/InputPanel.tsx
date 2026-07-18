@@ -1,16 +1,33 @@
-import {useState} from 'react';
 import {AirVent, FileText, Layers3, Shapes, Sliders, Zap} from 'lucide-react';
 import {coolingPresets, materials, profiles} from '../domain/data';
-import type {ArrangementDirection, BarOrientation, BusbarInput, PhaseMode, SystemType} from '../domain/types';
+import type {
+  ArrangementDirection,
+  BarOrientation,
+  BusbarCalculationResult,
+  BusbarInput,
+  PhaseMode,
+  SurfaceFinish,
+  SystemType,
+} from '../domain/types';
+import {useBusbarStore} from '../state/useBusbarStore';
+import {tabAttention} from '../utils/warningNav';
 import {NumberField, Panel, SegmentedButton, SelectField, TextField} from './ui';
-import {InputTabs, type InputTab, type InputTabId} from './InputTabs';
+import {InputTabs, type InputTab} from './InputTabs';
 import {ArrangementCards, OrientationCards} from './ArrangementCards';
 
 type InputPanelProps = {
   input: BusbarInput;
+  result: BusbarCalculationResult;
   onInput: (patch: Partial<BusbarInput>) => void;
   onProject: (patch: Partial<BusbarInput['project']>) => void;
 };
+
+const finishOptions: Array<{value: SurfaceFinish; label: string}> = [
+  {value: 'bare', label: 'Bare'},
+  {value: 'oxidized', label: 'Oxidized'},
+  {value: 'tinned', label: 'Tinned'},
+  {value: 'painted', label: 'Painted'},
+];
 
 const TABS: InputTab[] = [
   {id: 'project', label: 'Project', icon: FileText},
@@ -21,13 +38,17 @@ const TABS: InputTab[] = [
   {id: 'short-circuit', label: 'Faults', icon: Sliders},
 ];
 
-export function InputPanel({input, onInput, onProject}: InputPanelProps) {
-  const [activeTab, setActiveTab] = useState<InputTabId>('system');
+export function InputPanel({input, result, onInput, onProject}: InputPanelProps) {
+  const activeTab = useBusbarStore((state) => state.activeInputTab);
+  const setActiveTab = useBusbarStore((state) => state.setActiveInputTab);
   const materialProfiles = profiles.filter((profile) => profile.materialId === input.materialId);
+  const attention = tabAttention(result.warnings);
+  const material = materials.find((item) => item.id === input.materialId);
+  const requiredClearance = result.clearance.requiredAirClearance_mm;
 
   return (
     <aside className="input-rail" aria-label="Calculator inputs">
-      <InputTabs tabs={TABS} active={activeTab} onChange={setActiveTab}>
+      <InputTabs tabs={TABS} active={activeTab} onChange={setActiveTab} attention={attention}>
         {activeTab === 'project' && (
           <Panel title="Project">
             <div className="field-grid" role="tabpanel" id="input-panel-project" aria-labelledby="input-tab-project">
@@ -99,6 +120,20 @@ export function InputPanel({input, onInput, onProject}: InputPanelProps) {
               </SelectField>
               <NumberField label="Bars per phase" unit="pcs" value={input.barsPerPhase} min={1} max={4} onChange={(barsPerPhase) => onInput({barsPerPhase: barsPerPhase ?? 1})} />
               <NumberField label="Bar gap" unit="mm" value={input.barGap_mm} min={0} step={0.5} onChange={(barGap_mm) => onInput({barGap_mm: barGap_mm ?? 0})} />
+              <SelectField
+                label="Surface finish"
+                value={input.surfaceFinish ?? 'bare'}
+                onChange={(surfaceFinish) => onInput({surfaceFinish: surfaceFinish as SurfaceFinish})}
+              >
+                {finishOptions.map((option) => {
+                  const available = option.value === 'bare' || material?.emissivity[option.value] !== undefined;
+                  return (
+                    <option key={option.value} value={option.value} disabled={!available}>
+                      {option.label}
+                    </option>
+                  );
+                })}
+              </SelectField>
             </div>
           </Panel>
         )}
@@ -120,6 +155,19 @@ export function InputPanel({input, onInput, onProject}: InputPanelProps) {
               </div>
               <NumberField label="Phase gap" unit="mm" value={input.phaseGap_mm} min={0} step={0.5} onChange={(phaseGap_mm) => onInput({phaseGap_mm: phaseGap_mm ?? 0})} />
               <NumberField label="Wall clearance" unit="mm" value={input.sideClearance_mm} min={0} step={0.5} onChange={(sideClearance_mm) => onInput({sideClearance_mm: sideClearance_mm ?? 0})} />
+              {requiredClearance > 0 && input.phaseGap_mm < requiredClearance ? (
+                <div className="field-grid__full">
+                  <button
+                    type="button"
+                    className="field-inline-action"
+                    onClick={() => onInput({phaseGap_mm: Math.ceil(requiredClearance * 2) / 2})}
+                  >
+                    Apply required clearance ({requiredClearance.toFixed(1)} mm)
+                  </button>
+                </div>
+              ) : null}
+              <NumberField label="Creepage actual" unit="mm" value={input.actualCreepage_mm} min={0} step={0.5} onChange={(actualCreepage_mm) => onInput({actualCreepage_mm})} />
+              <NumberField label="Altitude" unit="m" value={input.altitude_m} min={0} max={6000} step={100} onChange={(altitude_m) => onInput({altitude_m})} />
             </div>
           </Panel>
         )}

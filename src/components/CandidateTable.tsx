@@ -143,6 +143,7 @@ export function CandidateTable({candidates, selectedProfileId, selectedBars, onS
               <th className="num col-priority-low">Area</th>
               <th className="num col-priority-low">Mass</th>
               <th className="num" title="Current density, A/mm²">J</th>
+              <th className="num col-priority-med" title="Ambient- and bundle-corrected DIN table rating, A">DIN I</th>
               <th className="num col-priority-med">Losses</th>
               <th className="num">Temp</th>
               <th className="col-priority-low">Envelope</th>
@@ -153,7 +154,7 @@ export function CandidateTable({candidates, selectedProfileId, selectedBars, onS
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={13} className="candidate-empty">
+                <td colSpan={14} className="candidate-empty">
                   No candidates match the current filters.
                 </td>
               </tr>
@@ -177,6 +178,9 @@ export function CandidateTable({candidates, selectedProfileId, selectedBars, onS
                     <td className="num col-priority-low">{formatNumber(candidate.areaPerPhase_mm2, 0)} mm²</td>
                     <td className="num col-priority-low">{formatNumber(candidate.massPerMeterPerPhase_kg_m, 2)} kg/m</td>
                     <td className="num">{formatNumber(candidate.currentDensity_A_per_mm2, 2)}</td>
+                    <td className="num col-priority-med">
+                      {candidate.tableRating_A !== null ? formatNumber(candidate.tableRating_A, 0) : '—'}
+                    </td>
                     <td className="num col-priority-med">{formatNumber(candidate.losses_W_per_m, 1)}</td>
                     <td className="num">{formatNumber(candidate.steadyStateTemp_C, 1)}</td>
                     <td className="col-priority-low">

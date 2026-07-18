@@ -61,7 +61,7 @@ export function App() {
       <KpiStrip result={result} />
 
       <main className="dashboard-grid">
-        <InputPanel input={input} onInput={setInput} onProject={setProject} />
+        <InputPanel input={input} result={result} onInput={setInput} onProject={setProject} />
 
         <section className="workspace" aria-label="Visualization and calculation panels">
           <BusbarCrossSection input={input} result={result} />
