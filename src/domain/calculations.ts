@@ -200,12 +200,17 @@ function exposedSurfaceAreaPerMeter(input: BusbarInput): number {
   return perimeterPerBar_m * input.barsPerPhase * proximitySurfaceFactor * orientationFactor;
 }
 
+export function emissivityFor(material: BusbarMaterial, finish: BusbarInput['surfaceFinish']): number {
+  if (!finish || finish === 'bare') return material.emissivity.default;
+  return material.emissivity[finish] ?? material.emissivity.default;
+}
+
 function heatRejection_W_per_m(temp_C: number, ambient_C: number, input: BusbarInput, material: BusbarMaterial, cooling: CoolingPreset) {
   const area_m2_per_m = exposedSurfaceAreaPerMeter(input);
   const h = cooling.convectiveCoefficient_W_m2K * cooling.enclosureDeratingFactor * input.enclosureMultiplier;
   const convection = h * area_m2_per_m * Math.max(0, temp_C - ambient_C);
   const radiation = cooling.radiationEnabled
-    ? material.emissivity.default *
+    ? emissivityFor(material, input.surfaceFinish) *
       sigma *
       area_m2_per_m *
       (Math.pow(temp_C + 273.15, 4) - Math.pow(ambient_C + 273.15, 4))
@@ -298,12 +303,38 @@ function findClearanceRule(input: BusbarInput): ClearanceRule | undefined {
   );
 }
 
+/**
+ * Altitude correction for air clearance per IEC 60664-1 Table A.2
+ * (linear interpolation between table points, clamped at 5000 m).
+ */
+export function altitudeClearanceFactor(altitude_m: number | undefined): number {
+  if (!altitude_m || altitude_m <= 2000) return 1;
+  const table: Array<[number, number]> = [
+    [2000, 1],
+    [3000, 1.14],
+    [4000, 1.29],
+    [5000, 1.48],
+  ];
+  const clamped = Math.min(altitude_m, 5000);
+  for (let i = 1; i < table.length; i += 1) {
+    const [prevAlt, prevFactor] = table[i - 1];
+    const [alt, factor] = table[i];
+    if (clamped <= alt) {
+      return prevFactor + ((clamped - prevAlt) / (alt - prevAlt)) * (factor - prevFactor);
+    }
+  }
+  return table[table.length - 1][1];
+}
+
 function calculateClearance(input: BusbarInput) {
   const rule = findClearanceRule(input);
   if (!rule) {
     return {
       requiredAirClearance_mm: 0,
       requiredCreepage_mm: undefined,
+      actualCreepage_mm: input.actualCreepage_mm,
+      creepageStatus: 'not-evaluated' as ResultStatus,
+      altitudeFactor: altitudeClearanceFactor(input.altitude_m),
       sourceRef: clearanceRuleSet.metadata.sourceRef,
       status: 'incomplete' as ResultStatus,
       warnings: [
@@ -318,18 +349,32 @@ function calculateClearance(input: BusbarInput) {
     };
   }
 
-  const requiredAirClearance_mm = rule.minimumAirClearance_mm + (rule.manufacturingMargin_mm ?? 0);
+  const altitudeFactor = altitudeClearanceFactor(input.altitude_m);
+  const requiredAirClearance_mm =
+    (rule.minimumAirClearance_mm + (rule.manufacturingMargin_mm ?? 0)) * altitudeFactor;
   const status: ResultStatus =
-    input.phaseGap_mm >= requiredAirClearance_mm ? 'warn' : input.phaseGap_mm > 0 ? 'fail' : 'incomplete';
+    input.phaseGap_mm >= requiredAirClearance_mm ? 'pass' : input.phaseGap_mm > 0 ? 'fail' : 'incomplete';
   const warnings = [
     warn(
       'CLEARANCE_TABLE_NOT_APPROVED',
-      'warning',
+      'info',
       'Example-only clearance data',
       'The active clearance rule set is not project-approved or licensed standard data.',
       'Replace with approved IEC/vendor/project table data before final design release.',
     ),
   ];
+
+  if ((input.altitude_m ?? 0) > 5000) {
+    warnings.push(
+      warn(
+        'ALTITUDE_OUT_OF_RANGE',
+        'warning',
+        'Altitude above 5000 m',
+        'Altitude correction is clamped at the 5000 m table value.',
+        'Use project-specific insulation coordination data for extreme altitudes.',
+      ),
+    );
+  }
 
   if (status === 'fail') {
     warnings.push(
@@ -343,9 +388,52 @@ function calculateClearance(input: BusbarInput) {
     );
   }
 
+  const requiredCreepage_mm = rule.minimumCreepage_mm;
+  let creepageStatus: ResultStatus = 'not-evaluated';
+  if (requiredCreepage_mm !== undefined) {
+    if (input.actualCreepage_mm === undefined) {
+      warnings.push(
+        warn(
+          'CREEPAGE_NOT_EVALUATED',
+          'warning',
+          'Creepage distance not checked',
+          `Required creepage is ${requiredCreepage_mm.toFixed(1)} mm but no actual creepage distance was entered.`,
+          'Enter the actual creepage distance along insulators and supports.',
+        ),
+      );
+    } else if (input.actualCreepage_mm < requiredCreepage_mm) {
+      creepageStatus = 'fail';
+      warnings.push(
+        warn(
+          'CREEPAGE_BELOW_REQUIRED',
+          'error',
+          'Creepage distance below required minimum',
+          `Actual creepage ${input.actualCreepage_mm.toFixed(1)} mm is below required ${requiredCreepage_mm.toFixed(1)} mm.`,
+          'Increase creepage via insulator geometry, ribs, or wider spacing.',
+        ),
+      );
+    } else if (input.actualCreepage_mm < requiredCreepage_mm * 1.1) {
+      creepageStatus = 'warn';
+      warnings.push(
+        warn(
+          'CREEPAGE_MARGIN_LOW',
+          'warning',
+          'Creepage margin below 10%',
+          `Actual creepage ${input.actualCreepage_mm.toFixed(1)} mm is within 10% of the required ${requiredCreepage_mm.toFixed(1)} mm.`,
+          'Consider extra margin for pollution and manufacturing tolerances.',
+        ),
+      );
+    } else {
+      creepageStatus = 'pass';
+    }
+  }
+
   return {
     requiredAirClearance_mm,
-    requiredCreepage_mm: rule.minimumCreepage_mm,
+    requiredCreepage_mm,
+    actualCreepage_mm: input.actualCreepage_mm,
+    creepageStatus,
+    altitudeFactor,
     sourceRef: `${clearanceRuleSet.label} / ${rule.id}`,
     status,
     warnings,
@@ -362,13 +450,17 @@ function calculateShortCircuit(input: BusbarInput, material: BusbarMaterial, are
 
   let thermalStatus: ResultStatus = 'not-evaluated';
   let mechanicalStatus: ResultStatus = 'not-evaluated';
+  let supportStatus: ResultStatus = 'not-evaluated';
   let i2t_A2s: number | undefined;
   let allowableI2t_A2s: number | undefined;
   let requiredArea_mm2: number | undefined;
   let thermalUtilization: number | undefined;
   let force_N_per_m: number | undefined;
+  let phaseFactor: number | undefined;
   let bendingStress_MPa: number | undefined;
   let mechanicalUtilization: number | undefined;
+  let supportForce_kN: number | undefined;
+  let supportUtilization: number | undefined;
 
   if (!rms_A || !duration_s || !k) {
     warnings.push(
@@ -399,24 +491,61 @@ function calculateShortCircuit(input: BusbarInput, material: BusbarMaterial, are
       ),
     );
   } else {
+    // Adjacent phase centre distance (uniform spacing along the arrangement axis).
     const d_m = Math.max(0.001, distance(envelope.phaseCenters[0], envelope.phaseCenters[1]) / 1000);
-    force_N_per_m = (mu0 / (2 * Math.PI)) * Math.pow(peak_A, 2) / d_m;
+    // IEC 60865-1: worst loaded main conductor in a three-phase system is the
+    // middle phase with factor 0.93 applied to mu0/2pi * ip^2 / a. Two-conductor
+    // systems (DC pair, 1P) use the full parallel-conductor force.
+    phaseFactor = envelope.phaseCenters.length >= 3 ? 0.93 : 1;
+    force_N_per_m = phaseFactor * (mu0 / (2 * Math.PI)) * Math.pow(peak_A, 2) / d_m;
     const {visibleWidth_mm, visibleHeight_mm} = visibleBarDimensions(input.width_mm, input.thickness_mm, input.orientation);
-    const b_m = (input.orientation === 'edgewise' ? visibleWidth_mm : input.width_mm) / 1000;
-    const h_m = Math.max(visibleHeight_mm / 1000, input.thickness_mm / 1000);
+    // The electrodynamic force acts along the phase arrangement axis, so the
+    // bending section height is the bar dimension along that axis.
+    const forceAlongWidth = input.arrangement === 'horizontal';
+    const h_m = (forceAlongWidth ? visibleWidth_mm : visibleHeight_mm) / 1000;
+    const b_m = (forceAlongWidth ? visibleHeight_mm : visibleWidth_mm) / 1000;
     const sectionModulus_m3 = Math.max(1e-10, (b_m * Math.pow(h_m, 2) * input.barsPerPhase) / 6);
     const maxMoment_Nm = (force_N_per_m * Math.pow(supportSpacing_m, 2)) / 8;
     bendingStress_MPa = maxMoment_Nm / sectionModulus_m3 / 1e6;
     const allowable = material.allowableStress_MPa ?? 1;
     mechanicalUtilization = bendingStress_MPa / allowable;
     mechanicalStatus = utilizationToStatus(mechanicalUtilization);
+
+    // Support (insulator) reaction: continuous-beam factor 1.25 covers the
+    // higher reaction at the first inner support of a multi-span run.
+    supportForce_kN = (1.25 * force_N_per_m * supportSpacing_m) / 1000;
+    if (input.supportRating_kN && input.supportRating_kN > 0) {
+      supportUtilization = supportForce_kN / input.supportRating_kN;
+      supportStatus = utilizationToStatus(supportUtilization);
+      if (supportStatus === 'fail') {
+        warnings.push(
+          warn(
+            'SUPPORT_LOAD_EXCEEDED',
+            'error',
+            'Support load exceeds insulator rating',
+            `Estimated support reaction ${supportForce_kN.toFixed(1)} kN exceeds the entered rating ${input.supportRating_kN.toFixed(1)} kN.`,
+            'Reduce support spacing, use stronger insulators, or reduce fault level.',
+          ),
+        );
+      }
+    } else {
+      warnings.push(
+        warn(
+          'SUPPORT_RATING_MISSING',
+          'warning',
+          'Support rating not entered',
+          `Estimated support reaction is ${supportForce_kN.toFixed(1)} kN but no insulator rating was entered.`,
+          'Enter the mechanical rating of the busbar supports.',
+        ),
+      );
+    }
   }
 
   if (material.metadata.sourceType === 'example-only') {
     warnings.push(
       warn(
         'SHORT_CIRCUIT_K_EXAMPLE_ONLY',
-        'warning',
+        'info',
         'Example-only short-circuit material constants',
         'The material k value and stress limit are development data.',
         'Verify against project standards and manufacturer data.',
@@ -427,13 +556,17 @@ function calculateShortCircuit(input: BusbarInput, material: BusbarMaterial, are
   return {
     thermalStatus,
     mechanicalStatus,
+    supportStatus,
     i2t_A2s,
     allowableI2t_A2s,
     requiredArea_mm2,
     thermalUtilization,
     force_N_per_m,
+    phaseFactor,
     bendingStress_MPa,
     mechanicalUtilization,
+    supportForce_kN,
+    supportUtilization,
     warnings,
   };
 }
@@ -496,6 +629,33 @@ function inputHash(input: BusbarInput) {
   return btoa(unescape(encodeURIComponent(JSON.stringify(input)))).slice(0, 12);
 }
 
+/**
+ * Multi-bar utilisation factors per DIN 43671 guidance: parallel bars shield
+ * each other, so the per-bar table rating drops as the bundle grows.
+ */
+const multiBarFactors = [1, 0.87, 0.78, 0.72];
+
+/**
+ * DIN 43670/43671 table rating corrected to the actual ambient temperature and
+ * bar count. Temperature correction follows the DIN k-factor
+ * sqrt(availableRise / referenceRise) around the table reference point.
+ */
+export function dinTableRating_A(
+  profile: BusbarProfile,
+  material: BusbarMaterial,
+  input: Pick<BusbarInput, 'systemType' | 'ambientTemp_C'>,
+  barsPerPhase: number,
+): number | undefined {
+  const base = input.systemType === 'DC' ? profile.ratings?.currentDc_A : profile.ratings?.currentAc_A;
+  if (!base) return undefined;
+  const referenceRise_K = profile.ratings?.referenceTempRise_K ?? 50;
+  const availableRise_K = material.allowableContinuousTemp_C - input.ambientTemp_C;
+  if (availableRise_K <= 0) return 0;
+  const temperatureFactor = Math.sqrt(availableRise_K / referenceRise_K);
+  const barFactor = multiBarFactors[Math.min(Math.max(barsPerPhase, 1), 4) - 1];
+  return base * barsPerPhase * barFactor * temperatureFactor;
+}
+
 function evaluateFixedProfile(input: BusbarInput, material: BusbarMaterial, profile: BusbarProfile, barsPerPhase: number) {
   const localInput: BusbarInput = {
     ...input,
@@ -516,11 +676,48 @@ function evaluateFixedProfile(input: BusbarInput, material: BusbarMaterial, prof
   const warnings = [...clearance.warnings, ...envelope.warnings, ...shortCircuit.warnings];
   if (densityWarning) warnings.push(densityWarning);
 
+  const tableRating_A = dinTableRating_A(profile, material, localInput, barsPerPhase);
+  const tableUtilization = tableRating_A ? localInput.ratedCurrent_A / tableRating_A : undefined;
+  const modelSaysOk = steady.steadyStateTemp_C <= material.allowableContinuousTemp_C;
+  if (tableUtilization !== undefined) {
+    if (modelSaysOk && tableUtilization > 1.15) {
+      warnings.push(
+        warn(
+          'MODEL_ABOVE_TABLE_RATING',
+          'warning',
+          'Thermal model is more optimistic than the DIN table',
+          `Design current is ${(tableUtilization * 100).toFixed(0)}% of the corrected DIN table rating (${tableRating_A?.toFixed(0)} A), but the thermal model predicts an acceptable temperature.`,
+          'Trust the table value until the thermal model is validated for this configuration.',
+        ),
+      );
+    } else if (!modelSaysOk && tableUtilization < 0.85) {
+      warnings.push(
+        warn(
+          'MODEL_BELOW_TABLE_RATING',
+          'warning',
+          'Thermal model is more conservative than the DIN table',
+          `Design current is only ${(tableUtilization * 100).toFixed(0)}% of the corrected DIN table rating (${tableRating_A?.toFixed(0)} A), but the thermal model predicts overtemperature.`,
+          'Review cooling assumptions; the lumped model may understate heat rejection here.',
+        ),
+      );
+    } else if (tableUtilization > 1) {
+      warnings.push(
+        warn(
+          'TABLE_RATING_EXCEEDED',
+          'warning',
+          'Design current above corrected DIN table rating',
+          `Design current exceeds the ambient- and bundle-corrected table rating of ${tableRating_A?.toFixed(0)} A.`,
+          'Choose a larger profile or more bars per phase.',
+        ),
+      );
+    }
+  }
+
   if (localInput.systemType === 'AC') {
     warnings.push(
       warn(
         'AC_PROXIMITY_FACTOR_APPROXIMATED',
-        'warning',
+        'info',
         'AC correction is approximate',
         'Skin and proximity correction factors are simplified for this MVP engine.',
         'Validate AC resistance against approved data for final designs.',
@@ -530,7 +727,7 @@ function evaluateFixedProfile(input: BusbarInput, material: BusbarMaterial, prof
 
   const thermalStatus = temperatureToStatus(steady.steadyStateTemp_C, material.allowableContinuousTemp_C);
   const status = aggregateStatus(
-    [thermalStatus, clearance.status, shortCircuit.thermalStatus, shortCircuit.mechanicalStatus],
+    [thermalStatus, clearance.status, clearance.creepageStatus, shortCircuit.thermalStatus, shortCircuit.mechanicalStatus, shortCircuit.supportStatus],
     warnings,
   );
 
@@ -542,6 +739,8 @@ function evaluateFixedProfile(input: BusbarInput, material: BusbarMaterial, prof
     steady,
     currentDensity_A_per_mm2,
     shortCircuit,
+    tableRating_A,
+    tableUtilization,
     warnings,
     thermalStatus,
     status,
@@ -582,6 +781,7 @@ function buildCandidates(input: BusbarInput): ProfileCandidate[] {
         steadyStateTemp_C: evaluated.steady.steadyStateTemp_C,
         channelWidth_mm: evaluated.envelope.width_mm,
         channelHeight_mm: evaluated.envelope.height_mm,
+        tableRating_A: evaluated.tableRating_A ?? null,
         shortCircuitMargin,
         status: evaluated.status,
         score,
@@ -654,10 +854,24 @@ function buildTrace(
       method: 'lumped-steady-state-v1',
     },
     {
+      id: 'din-table-rating',
+      label: 'DIN table rating (corrected)',
+      equation: 'I_table = I_ref * n * k_bundle * sqrt(dT_avail / dT_ref)',
+      inputs: {
+        I_ref_A: profile.ratings?.currentAc_A ?? 'not available',
+        n: input.barsPerPhase,
+        ambient_C: input.ambientTemp_C,
+      },
+      output: result.tableRating_A ? result.tableRating_A.toFixed(0) : 'not available',
+      unit: 'A',
+      method: 'din-43671-table-correction-v1',
+      sourceRef: profile.metadata.sourceRef,
+    },
+    {
       id: 'clearance',
       label: 'Required air clearance',
-      equation: 'gap_required = table_value + manufacturing_margin',
-      inputs: {voltage_V: input.ratedVoltage_V, actual_gap_mm: input.phaseGap_mm},
+      equation: 'gap_required = (table_value + manufacturing_margin) * k_altitude',
+      inputs: {voltage_V: input.ratedVoltage_V, actual_gap_mm: input.phaseGap_mm, altitude_m: input.altitude_m ?? 0},
       output: result.envelope.requiredClearance_mm.toFixed(1),
       unit: 'mm',
       method: 'clearance-rule-lookup-v1',
@@ -693,7 +907,32 @@ function buildTrace(
         ? `${(result.shortCircuit.mechanicalUtilization * 100).toFixed(1)}`
         : 'not evaluated',
       unit: '%',
-      method: 'parallel-conductor-force-simple-beam-v1',
+      method: 'iec-60865-middle-phase-simple-beam-v1',
+    },
+    {
+      id: 'creepage',
+      label: 'Creepage distance check',
+      equation: 'actual_creepage >= required_creepage',
+      inputs: {actual_mm: input.actualCreepage_mm ?? 'not entered'},
+      output:
+        input.actualCreepage_mm !== undefined ? input.actualCreepage_mm.toFixed(1) : 'not evaluated',
+      unit: 'mm',
+      method: 'creepage-rule-lookup-v1',
+      sourceRef: clearanceSource,
+    },
+    {
+      id: 'support-load',
+      label: 'Support reaction vs insulator rating',
+      equation: 'F_support = 1.25 * F * L',
+      inputs: {
+        rating_kN: input.supportRating_kN ?? 'not entered',
+        L_mm: input.supportSpacing_mm ?? 'not entered',
+      },
+      output: result.shortCircuit.supportForce_kN
+        ? result.shortCircuit.supportForce_kN.toFixed(2)
+        : 'not evaluated',
+      unit: 'kN',
+      method: 'continuous-beam-support-reaction-v1',
     },
   ];
 }
@@ -721,7 +960,7 @@ export function calculateBusbar(input: BusbarInput): BusbarCalculationResult {
     warnings.push(
       warn(
         'EXAMPLE_DATASET_ACTIVE',
-        'warning',
+        'info',
         'Example-only engineering data',
         'Materials, profile ratings, clearances, and cooling presets are development data.',
         'Replace datasets with reviewed project/vendor/standard data before production use.',
@@ -742,7 +981,7 @@ export function calculateBusbar(input: BusbarInput): BusbarCalculationResult {
   }
 
   const status = aggregateStatus(
-    [fixed.thermalStatus, clearance.status, fixed.shortCircuit.thermalStatus, fixed.shortCircuit.mechanicalStatus],
+    [fixed.thermalStatus, clearance.status, clearance.creepageStatus, fixed.shortCircuit.thermalStatus, fixed.shortCircuit.mechanicalStatus, fixed.shortCircuit.supportStatus],
     warnings,
   );
 
@@ -769,6 +1008,8 @@ export function calculateBusbar(input: BusbarInput): BusbarCalculationResult {
       resistance_ohm_per_m: fixed.steady.resistance_ohm_per_m,
       losses_W_per_m: fixed.steady.losses_W_per_m,
       acMultiplier: acMultiplierFor(normalizedInput),
+      tableRating_A: fixed.tableRating_A,
+      tableUtilization: fixed.tableUtilization,
     },
     thermal: {
       ambientTemp_C: normalizedInput.ambientTemp_C,
@@ -782,6 +1023,9 @@ export function calculateBusbar(input: BusbarInput): BusbarCalculationResult {
       requiredAirClearance_mm: clearance.requiredAirClearance_mm,
       actualPhaseGap_mm: normalizedInput.phaseGap_mm,
       requiredCreepage_mm: clearance.requiredCreepage_mm,
+      actualCreepage_mm: clearance.actualCreepage_mm,
+      creepageStatus: clearance.creepageStatus,
+      altitudeFactor: clearance.altitudeFactor,
       ruleSetId: clearanceRuleSet.id,
       sourceRef: clearance.sourceRef,
       status: clearance.status,
@@ -790,13 +1034,17 @@ export function calculateBusbar(input: BusbarInput): BusbarCalculationResult {
     shortCircuit: {
       thermalStatus: fixed.shortCircuit.thermalStatus,
       mechanicalStatus: fixed.shortCircuit.mechanicalStatus,
+      supportStatus: fixed.shortCircuit.supportStatus,
       i2t_A2s: fixed.shortCircuit.i2t_A2s,
       allowableI2t_A2s: fixed.shortCircuit.allowableI2t_A2s,
       requiredArea_mm2: fixed.shortCircuit.requiredArea_mm2,
       thermalUtilization: fixed.shortCircuit.thermalUtilization,
       force_N_per_m: fixed.shortCircuit.force_N_per_m,
+      phaseFactor: fixed.shortCircuit.phaseFactor,
       bendingStress_MPa: fixed.shortCircuit.bendingStress_MPa,
       mechanicalUtilization: fixed.shortCircuit.mechanicalUtilization,
+      supportForce_kN: fixed.shortCircuit.supportForce_kN,
+      supportUtilization: fixed.shortCircuit.supportUtilization,
     },
     candidates,
     warnings,

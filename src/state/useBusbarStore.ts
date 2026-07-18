@@ -2,6 +2,7 @@ import {create} from 'zustand';
 import {persist} from 'zustand/middleware';
 import {getProfile, getProfileIdForDimensions} from '../domain/calculations';
 import type {BusbarInput, BusbarMaterial, BusbarProfile} from '../domain/types';
+import type {InputTabId} from '../components/InputTabs';
 import {defaultBusbarInput} from './defaults';
 
 type Theme = 'dark' | 'light';
@@ -9,6 +10,7 @@ type Theme = 'dark' | 'light';
 type BusbarStore = {
   input: BusbarInput;
   theme: Theme;
+  activeInputTab: InputTabId;
   setInput: (patch: Partial<BusbarInput>) => void;
   setProject: (patch: Partial<BusbarInput['project']>) => void;
   selectProfile: (profile: BusbarProfile, barsPerPhase?: number) => void;
@@ -16,6 +18,7 @@ type BusbarStore = {
   loadProject: (input: BusbarInput) => void;
   reset: () => void;
   setTheme: (theme: Theme) => void;
+  setActiveInputTab: (tab: InputTabId) => void;
 };
 
 export const useBusbarStore = create<BusbarStore>()(
@@ -23,6 +26,7 @@ export const useBusbarStore = create<BusbarStore>()(
     (set) => ({
       input: defaultBusbarInput,
       theme: 'dark',
+      activeInputTab: 'system',
       setInput: (patch) =>
         set((state) => {
           const next = {...state.input, ...patch};
@@ -71,6 +75,7 @@ export const useBusbarStore = create<BusbarStore>()(
       loadProject: (input) => set({input}),
       reset: () => set({input: defaultBusbarInput}),
       setTheme: (theme) => set({theme}),
+      setActiveInputTab: (activeInputTab) => set({activeInputTab}),
     }),
     {
       name: 'busbar-calculator-draft',

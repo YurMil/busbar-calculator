@@ -5,6 +5,7 @@ import type {
   CoolingPreset,
   DatasetMetadata,
 } from './types';
+import {mergeCustomDatasets} from './customDatasets';
 
 const exampleMetadata = (datasetId: string, title: string, sourceRef: string): DatasetMetadata => ({
   datasetId,
@@ -78,6 +79,55 @@ export const materials: BusbarMaterial[] = [
     },
     metadata: exampleMetadata('materials-example-v0', 'Development material constants', 'Engineering example values'),
   },
+  {
+    id: 'cu-of-example',
+    label: 'Copper Cu-OF',
+    family: 'copper',
+    resistivity20_ohm_m: 1.707e-8,
+    conductivityPercentIACS: 101,
+    temperatureCoefficient_1_per_K: 0.00393,
+    density_kg_m3: 8940,
+    heatCapacity_J_kgK: 385,
+    emissivity: {
+      default: 0.5,
+      oxidized: 0.7,
+      tinned: 0.25,
+      painted: 0.9,
+    },
+    allowableContinuousTemp_C: 105,
+    allowableStress_MPa: 120,
+    shortCircuit: {
+      k_A_sqrt_s_per_mm2: 143,
+      initialTemp_C: 30,
+      finalTemp_C: 250,
+      sourceRef: 'Example-only k value; verify with project standard.',
+    },
+    metadata: exampleMetadata('materials-example-v0', 'Development material constants', 'Engineering example values'),
+  },
+  {
+    id: 'al-1350-example',
+    label: 'Aluminium 1350',
+    family: 'aluminium',
+    resistivity20_ohm_m: 2.83e-8,
+    conductivityPercentIACS: 61,
+    temperatureCoefficient_1_per_K: 0.00403,
+    density_kg_m3: 2705,
+    heatCapacity_J_kgK: 900,
+    emissivity: {
+      default: 0.45,
+      oxidized: 0.65,
+      painted: 0.88,
+    },
+    allowableContinuousTemp_C: 95,
+    allowableStress_MPa: 55,
+    shortCircuit: {
+      k_A_sqrt_s_per_mm2: 92,
+      initialTemp_C: 30,
+      finalTemp_C: 200,
+      sourceRef: 'Example-only k value; verify with project standard.',
+    },
+    metadata: exampleMetadata('materials-example-v0', 'Development material constants', 'Engineering example values'),
+  },
 ];
 
 const buildProfile = (
@@ -86,10 +136,11 @@ const buildProfile = (
   thickness_mm: number,
   standard: 'DIN_43670' | 'DIN_43671',
   currentAc_A: number,
+  idPrefix?: string,
 ): BusbarProfile => {
   const area = width_mm * thickness_mm;
   return {
-    profileId: `${material.family === 'copper' ? 'cu' : 'al'}_${width_mm}_${thickness_mm}_example`,
+    profileId: `${idPrefix ?? (material.family === 'copper' ? 'cu' : 'al')}_${width_mm}_${thickness_mm}_example`,
     materialId: material.id,
     standard,
     dimensions: {width_mm, thickness_mm},
@@ -115,66 +166,35 @@ const buildProfile = (
 
 const copper = materials[0];
 const aluminium = materials[1];
+const copperOf = materials[2];
+const aluminium1350 = materials[3];
+
+// [width_mm, thickness_mm, table AC rating for the reference material]
+const copperDimensions: Array<[number, number, number]> = [
+  [20, 5, 275], [25, 5, 330], [30, 5, 390], [40, 5, 500], [50, 5, 605], [60, 5, 705],
+  [30, 6.3, 470], [40, 6.3, 595], [50, 6.3, 720], [60, 6.3, 840], [80, 6.3, 1070], [100, 6.3, 1290],
+  [30, 10, 710], [40, 10, 850], [50, 10, 1040], [60, 10, 1220], [80, 10, 1550], [100, 10, 1850],
+  [120, 10, 2150], [160, 10, 2700], [200, 10, 3200],
+  [60, 12, 1390], [80, 12, 1700], [100, 12, 2050], [120, 12, 2350], [160, 12, 2950], [200, 12, 3500],
+];
+const aluminiumDimensions: Array<[number, number, number]> = [
+  [30, 5, 280], [40, 5, 365], [50, 5, 445], [60, 5, 520],
+  [40, 6.3, 440], [50, 6.3, 540], [60, 6.3, 630], [80, 6.3, 800], [100, 6.3, 960],
+  [40, 10, 610], [50, 10, 760], [60, 10, 900], [80, 10, 1160], [100, 10, 1390],
+  [120, 10, 1600], [160, 10, 2010], [200, 10, 2380],
+  [80, 12, 1280], [100, 12, 1540], [120, 12, 1800], [160, 12, 2280], [200, 12, 2700],
+];
 
 export const profiles: BusbarProfile[] = [
-  // Copper DIN 43671 — thin (5 mm)
-  buildProfile(copper, 20, 5, 'DIN_43671', 275),
-  buildProfile(copper, 25, 5, 'DIN_43671', 330),
-  buildProfile(copper, 30, 5, 'DIN_43671', 390),
-  buildProfile(copper, 40, 5, 'DIN_43671', 500),
-  buildProfile(copper, 50, 5, 'DIN_43671', 605),
-  buildProfile(copper, 60, 5, 'DIN_43671', 705),
-  // Copper DIN 43671 — medium (6.3 / 8 mm)
-  buildProfile(copper, 30, 6.3, 'DIN_43671', 470),
-  buildProfile(copper, 40, 6.3, 'DIN_43671', 595),
-  buildProfile(copper, 50, 6.3, 'DIN_43671', 720),
-  buildProfile(copper, 60, 6.3, 'DIN_43671', 840),
-  buildProfile(copper, 80, 6.3, 'DIN_43671', 1070),
-  buildProfile(copper, 100, 6.3, 'DIN_43671', 1290),
-  // Copper DIN 43671 — 10 mm
-  buildProfile(copper, 30, 10, 'DIN_43671', 710),
-  buildProfile(copper, 40, 10, 'DIN_43671', 850),
-  buildProfile(copper, 50, 10, 'DIN_43671', 1040),
-  buildProfile(copper, 60, 10, 'DIN_43671', 1220),
-  buildProfile(copper, 80, 10, 'DIN_43671', 1550),
-  buildProfile(copper, 100, 10, 'DIN_43671', 1850),
-  buildProfile(copper, 120, 10, 'DIN_43671', 2150),
-  buildProfile(copper, 160, 10, 'DIN_43671', 2700),
-  buildProfile(copper, 200, 10, 'DIN_43671', 3200),
-  // Copper DIN 43671 — 12 mm
-  buildProfile(copper, 60, 12, 'DIN_43671', 1390),
-  buildProfile(copper, 80, 12, 'DIN_43671', 1700),
-  buildProfile(copper, 100, 12, 'DIN_43671', 2050),
-  buildProfile(copper, 120, 12, 'DIN_43671', 2350),
-  buildProfile(copper, 160, 12, 'DIN_43671', 2950),
-  buildProfile(copper, 200, 12, 'DIN_43671', 3500),
-
-  // Aluminium DIN 43670 — thin (5 / 6.3 mm)
-  buildProfile(aluminium, 30, 5, 'DIN_43670', 280),
-  buildProfile(aluminium, 40, 5, 'DIN_43670', 365),
-  buildProfile(aluminium, 50, 5, 'DIN_43670', 445),
-  buildProfile(aluminium, 60, 5, 'DIN_43670', 520),
-  buildProfile(aluminium, 40, 6.3, 'DIN_43670', 440),
-  buildProfile(aluminium, 50, 6.3, 'DIN_43670', 540),
-  buildProfile(aluminium, 60, 6.3, 'DIN_43670', 630),
-  buildProfile(aluminium, 80, 6.3, 'DIN_43670', 800),
-  buildProfile(aluminium, 100, 6.3, 'DIN_43670', 960),
-  // Aluminium DIN 43670 — 10 mm
-  buildProfile(aluminium, 40, 10, 'DIN_43670', 610),
-  buildProfile(aluminium, 50, 10, 'DIN_43670', 760),
-  buildProfile(aluminium, 60, 10, 'DIN_43670', 900),
-  buildProfile(aluminium, 80, 10, 'DIN_43670', 1160),
-  buildProfile(aluminium, 100, 10, 'DIN_43670', 1390),
-  buildProfile(aluminium, 120, 10, 'DIN_43670', 1600),
-  buildProfile(aluminium, 160, 10, 'DIN_43670', 2010),
-  buildProfile(aluminium, 200, 10, 'DIN_43670', 2380),
-  // Aluminium DIN 43670 — 12 mm
-  buildProfile(aluminium, 80, 12, 'DIN_43670', 1280),
-  buildProfile(aluminium, 100, 12, 'DIN_43670', 1540),
-  buildProfile(aluminium, 120, 12, 'DIN_43670', 1800),
-  buildProfile(aluminium, 160, 12, 'DIN_43670', 2280),
-  buildProfile(aluminium, 200, 12, 'DIN_43670', 2700),
+  ...copperDimensions.map(([w, t, amps]) => buildProfile(copper, w, t, 'DIN_43671', amps)),
+  // Cu-OF: marginally better conductivity than ETP; same table ratings apply.
+  ...copperDimensions.map(([w, t, amps]) => buildProfile(copperOf, w, t, 'DIN_43671', amps, 'cuof')),
+  ...aluminiumDimensions.map(([w, t, amps]) => buildProfile(aluminium, w, t, 'DIN_43670', amps)),
+  // Al 1350: 61 vs 58 %IACS gives ~2% higher table rating than 6101.
+  ...aluminiumDimensions.map(([w, t, amps]) => buildProfile(aluminium1350, w, t, 'DIN_43670', Math.round(amps * 1.02), 'al1350')),
 ];
+
+mergeCustomDatasets(materials, profiles);
 
 export const coolingPresets: CoolingPreset[] = [
   {
