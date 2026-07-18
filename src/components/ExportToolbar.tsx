@@ -1,6 +1,7 @@
 import {ChangeEvent, useRef, useState} from 'react';
 import {CheckCircle2, CircleAlert, ClipboardCopy, Code2, Download, FileDown, FileInput} from 'lucide-react';
 import {buildPdfReport, reportFileName} from '../export/report';
+import {DATASET_FILE_TYPE, saveCustomDatasets, validateCustomDatasets} from '../domain/customDatasets';
 import {captureExport} from '../export/captureSvg';
 import type {BusbarCalculationResult, BusbarInput} from '../domain/types';
 import {formatNumber, statusLabel} from '../utils/format';
@@ -118,8 +119,14 @@ export function ExportToolbar({input, result, onImport}: ExportToolbarProps) {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as {input?: BusbarInput; fileType?: string};
+      if (parsed.fileType === DATASET_FILE_TYPE) {
+        saveCustomDatasets(validateCustomDatasets(parsed));
+        notify('success', `Datasets imported from ${file.name} — reloading`);
+        window.setTimeout(() => window.location.reload(), 600);
+        return;
+      }
       if (!parsed.input) {
-        throw new Error('Missing "input" field — not a busbar project file');
+        throw new Error('Missing "input" field — not a busbar project or dataset file');
       }
       if (parsed.fileType && parsed.fileType !== 'cadautoscript.busbar-project') {
         throw new Error(`Unexpected fileType "${parsed.fileType}"`);
