@@ -32,6 +32,7 @@ export type PhaseMode = 'dc-pair' | '1P' | '3P' | '3P+N';
 export type MaterialFamily = 'copper' | 'aluminium' | 'custom';
 export type ArrangementDirection = 'horizontal' | 'vertical';
 export type BarOrientation = 'flatwise' | 'edgewise';
+export type SurfaceFinish = 'bare' | 'oxidized' | 'tinned' | 'painted';
 
 export type BusbarMaterial = {
   id: string;
@@ -143,6 +144,9 @@ export type BusbarInput = {
   barGap_mm: number;
   sideClearance_mm: number;
   topBottomClearance_mm: number;
+  actualCreepage_mm?: number;
+  altitude_m?: number;
+  surfaceFinish?: SurfaceFinish;
   ambientTemp_C: number;
   coolingPresetId: string;
   enclosureMultiplier: number;
@@ -202,6 +206,7 @@ export type ProfileCandidate = {
   steadyStateTemp_C: number;
   channelWidth_mm: number;
   channelHeight_mm: number;
+  tableRating_A: number | null;
   shortCircuitMargin: number | null;
   status: ResultStatus;
   score: number;
@@ -241,6 +246,8 @@ export type BusbarCalculationResult = {
     resistance_ohm_per_m: number;
     losses_W_per_m: number;
     acMultiplier: number;
+    tableRating_A?: number;
+    tableUtilization?: number;
   };
   thermal: {
     ambientTemp_C: number;
@@ -254,6 +261,9 @@ export type BusbarCalculationResult = {
     requiredAirClearance_mm: number;
     actualPhaseGap_mm: number;
     requiredCreepage_mm?: number;
+    actualCreepage_mm?: number;
+    creepageStatus: ResultStatus;
+    altitudeFactor: number;
     ruleSetId: string;
     sourceRef: string;
     status: ResultStatus;
@@ -262,13 +272,17 @@ export type BusbarCalculationResult = {
   shortCircuit: {
     thermalStatus: ResultStatus;
     mechanicalStatus: ResultStatus;
+    supportStatus: ResultStatus;
     i2t_A2s?: number;
     allowableI2t_A2s?: number;
     requiredArea_mm2?: number;
     thermalUtilization?: number;
     force_N_per_m?: number;
+    phaseFactor?: number;
     bendingStress_MPa?: number;
     mechanicalUtilization?: number;
+    supportForce_kN?: number;
+    supportUtilization?: number;
   };
   candidates: ProfileCandidate[];
   warnings: CalculationWarning[];
