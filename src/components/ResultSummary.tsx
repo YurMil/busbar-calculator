@@ -14,9 +14,9 @@ export function ResultSummary({result}: ResultSummaryProps) {
         <div className="summary-list">
           <SummaryRow label="Selected busbar" value={`${result.selectedProfile.materialLabel} ${result.selectedProfile.width_mm} x ${result.selectedProfile.thickness_mm} mm`} icon={<Gauge size={16} />} />
           <SummaryRow label="Bars per phase" value={String(result.selectedProfile.barsPerPhase)} />
-          <SummaryRow label="Current density" value={`${formatNumber(result.electrical.currentDensity_A_per_mm2, 2)} A/mm2`} icon={<Zap size={16} />} />
+          <SummaryRow label="Current density" value={`${formatNumber(result.electrical.currentDensity_A_per_mm2, 2)} A/mm²`} icon={<Zap size={16} />} />
           <SummaryRow label="Losses" value={`${formatNumber(result.electrical.losses_W_per_m, 1)} W/m`} />
-          <SummaryRow label="Steady temp" value={`${formatNumber(result.thermal.steadyStateTemp_C, 1)} degC`} icon={<Thermometer size={16} />} />
+          <SummaryRow label="Steady temp" value={`${formatNumber(result.thermal.steadyStateTemp_C, 1)} °C`} icon={<Thermometer size={16} />} />
           <SummaryRow label="Temp rise" value={`${formatNumber(result.thermal.tempRise_K, 1)} K`} />
           <SummaryRow label="Clearance required" value={`${formatNumber(result.clearance.requiredAirClearance_mm, 1)} mm`} icon={<Ruler size={16} />} />
           <SummaryRow label="Clearance actual" value={`${formatNumber(result.clearance.actualPhaseGap_mm, 1)} mm`} />
@@ -27,7 +27,7 @@ export function ResultSummary({result}: ResultSummaryProps) {
       <Panel title="Short-circuit Checks">
         <div className="status-stack">
           <div>
-            <span>Thermal I2t</span>
+            <span>Thermal I²t</span>
             <StatusBadge status={result.shortCircuit.thermalStatus} />
           </div>
           <div>
@@ -37,17 +37,26 @@ export function ResultSummary({result}: ResultSummaryProps) {
         </div>
       </Panel>
 
-      <Panel title="Warnings">
+      <Panel title="Warnings" actions={<span className="panel-actions">{result.warnings.length} total</span>}>
         <div className="warnings-list">
-          {result.warnings.slice(0, 6).map((warning) => (
-            <article key={`${warning.code}-${warning.message}`} className={`warning warning--${warning.severity}`}>
-              <AlertTriangle size={15} />
-              <div>
-                <strong>{warning.title}</strong>
-                <p>{warning.message}</p>
-              </div>
-            </article>
-          ))}
+          {result.warnings.length === 0 ? (
+            <p className="warnings-empty">No warnings — configuration looks clean.</p>
+          ) : (
+            <>
+              {result.warnings.slice(0, 6).map((warning) => (
+                <article key={`${warning.code}-${warning.message}`} className={`warning warning--${warning.severity}`}>
+                  <AlertTriangle size={15} />
+                  <div>
+                    <strong>{warning.title}</strong>
+                    <p>{warning.message}</p>
+                  </div>
+                </article>
+              ))}
+              {result.warnings.length > 6 ? (
+                <p className="warnings-more">+{result.warnings.length - 6} more — see calculation trace</p>
+              ) : null}
+            </>
+          )}
         </div>
       </Panel>
     </aside>

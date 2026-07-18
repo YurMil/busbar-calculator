@@ -1,4 +1,4 @@
-import {existsSync, renameSync} from 'node:fs';
+import {copyFileSync, existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 
 const outDir = resolve(process.cwd(), 'static/utility-apps/busbar-calculator');
@@ -9,5 +9,5 @@ if (!existsSync(indexPath)) {
   throw new Error(`Expected Vite output not found: ${indexPath}`);
 }
 
-renameSync(indexPath, appPath);
-console.log(`Renamed ${indexPath} -> ${appPath}`);
+copyFileSync(indexPath, appPath);
+console.log(`Copied ${indexPath} -> ${appPath}`);

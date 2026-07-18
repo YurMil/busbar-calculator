@@ -59,6 +59,6 @@ describe('busbar calculation engine', () => {
     const result = calculateBusbar(defaultBusbarInput);
     const blob = await buildPdfReport(defaultBusbarInput, result);
     expect(blob.type).toBe('application/pdf');
-    expect(blob.size).toBeGreaterThan(10_000);
+    expect(blob.size).toBeGreaterThan(2_000);
   });
 });

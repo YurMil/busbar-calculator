@@ -1,0 +1,47 @@
+import type {ReactNode} from 'react';
+import type {LucideIcon} from 'lucide-react';
+
+export type InputTabId = 'project' | 'system' | 'busbars' | 'layout' | 'environment' | 'short-circuit';
+
+export type InputTab = {
+  id: InputTabId;
+  label: string;
+  icon: LucideIcon;
+};
+
+type InputTabsProps = {
+  tabs: InputTab[];
+  active: InputTabId;
+  onChange: (id: InputTabId) => void;
+  children: ReactNode;
+};
+
+export function InputTabs({tabs, active, onChange, children}: InputTabsProps) {
+  return (
+    <div className="input-tabs">
+      <div className="input-tabs__strip" role="tablist" aria-label="Input groups">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = tab.id === active;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`input-panel-${tab.id}`}
+              id={`input-tab-${tab.id}`}
+              className={`input-tabs__tab${isActive ? ' is-active' : ''}`}
+              onClick={() => onChange(tab.id)}
+              title={tab.label}
+            >
+              <Icon size={14} aria-hidden="true" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="input-tabs__body">{children}</div>
+    </div>
+  );
+}
